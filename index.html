@@ -2,59 +2,92 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🐠 Fish Tycoon - Симулятор разведения рыб</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>[FISH] Tycoon - Симулятор разведения рыб</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
         
-        body {
+        html, body {
+            width: 100%;
+            height: 100%;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             display: flex;
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            color: #333;
             overflow: hidden;
+            position: fixed;
         }
         
         #gameContainer {
-            width: 1280px;
-            height: 720px;
+            width: 100vw;
+            height: 100vh;
+            max-width: 1280px;
+            max-height: 720px;
+            aspect-ratio: 16 / 9;
             box-shadow: 0 30px 80px rgba(0, 0, 0, 0.4);
-            border-radius: 20px;
+            border-radius: 0;
             overflow: hidden;
             background: white;
             position: relative;
+            display: flex;
+            flex-direction: column;
         }
         
         canvas {
             display: block;
             width: 100%;
             height: 100%;
+            touch-action: none;
         }
         
-        @media (max-width: 1400px) {
+        @media (min-width: 768px) {
             #gameContainer {
+                border-radius: 20px;
                 width: 90vw;
                 height: 90vh;
-                max-width: 1280px;
-                max-height: 720px;
             }
+        }
+        
+        @media (max-width: 480px) {
+            html, body {
+                width: 100%;
+                height: 100%;
+            }
+            
+            #gameContainer {
+                border-radius: 0;
+            }
+        }
+        
+        /* Предотвращение масштабирования на iOS */
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        select {
+            font-size: 16px;
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
+    <div id="gameContainer">
+        <canvas id="gameCanvas"></canvas>
+    </div>
     <script src="js/audio-manager.js"></script>
     <script src="js/particle-system.js"></script>
     <script src="js/fish-system.js"></script>
     <script src="js/ui-manager.js"></script>
     <script src="js/game-state.js"></script>
     <script src="js/game.js"></script>
+    <script src="js/mobile-support.js"></script>
 </body>
 </html>
