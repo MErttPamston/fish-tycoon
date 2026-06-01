@@ -4,35 +4,35 @@ class AchievementSystem {
         this.achievements = {
             'first_sell': {
                 id: 'first_sell',
-                name: '💎 Первая продажа',
+                name: '[MEDAL] Первая продажа',
                 description: 'Продайте свою первую рыбу',
                 unlocked: false,
                 reward: 50
             },
             'millionaire': {
                 id: 'millionaire',
-                name: '💰 Миллионер',
-                description: 'Заработайте 1,000,000 🪙',
+                name: '[MONEY] Миллионер',
+                description: 'Заработайте 1,000,000 монет',
                 unlocked: false,
                 reward: 500
             },
             'collector': {
                 id: 'collector',
-                name: '🐠 Коллекционер',
+                name: '[ALL] Коллекционер',
                 description: 'Откройте все виды рыб',
                 unlocked: false,
                 reward: 300
             },
             'level_50': {
                 id: 'level_50',
-                name: '⭐ Легенда',
+                name: '[STAR] Легенда',
                 description: 'Основные 50 уровней',
                 unlocked: false,
                 reward: 1000
             },
             'breeder': {
                 id: 'breeder',
-                name: '🐟 Население',
+                name: '[FISH] Население',
                 description: 'Овладеть 100 рыбами',
                 unlocked: false,
                 reward: 250
@@ -58,7 +58,7 @@ class AchievementSystem {
         if (this.achievements[id] && !this.achievements[id].unlocked) {
             this.achievements[id].unlocked = true;
             audioManager.playSound('levelup', 0.8);
-            console.log(`🌟 Достижение разблокировано: ${this.achievements[id].name}`);
+            console.log(`[UNLOCK] Достижение разблокировано: ${this.achievements[id].name}`);
         }
     }
     
