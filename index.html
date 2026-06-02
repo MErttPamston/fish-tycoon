@@ -1,0 +1,1091 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐠 FISH TYCOON — Аквариумный Магнат</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323:wght@400&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════
+       RETRO DESIGN SYSTEM — CRT / ARCADE STYLE
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg-dark:      #0a0a1a;
+      --bg-panel:     #0d1b2a;
+      --bg-tank:      #051020;
+      --neon-cyan:    #00f5ff;
+      --neon-pink:    #ff006e;
+      --neon-yellow:  #ffd60a;
+      --neon-green:   #39ff14;
+      --neon-purple:  #bf5af2;
+      --neon-orange:  #ff6b35;
+      --text-main:    #e0e0ff;
+      --text-dim:     #7a7aaa;
+      --border-glow:  rgba(0,245,255,0.5);
+      --scanline-op:  0.08;
+      --pixel:        2px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      width: 100%; height: 100%;
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      overflow: hidden;
+      user-select: none;
+      cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20'%3E%3Ccircle cx='10' cy='10' r='4' fill='%2300f5ff'/%3E%3C/svg%3E") 10 10, crosshair;
+    }
+
+    /* CRT screen effect */
+    body::before {
+      content: '';
+      position: fixed; inset: 0; z-index: 9999;
+      pointer-events: none;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 2px,
+        rgba(0,0,0,var(--scanline-op)) 2px,
+        rgba(0,0,0,var(--scanline-op)) 4px
+      );
+    }
+
+    /* CRT vignette */
+    body::after {
+      content: '';
+      position: fixed; inset: 0; z-index: 9998;
+      pointer-events: none;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+    }
+
+    /* ═══ LAYOUT ═══ */
+    #game-wrapper {
+      width: 100vw; height: 100vh;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 8px;
+    }
+
+    #game-container {
+      width: min(960px, 100%);
+      height: min(680px, 100vh - 16px);
+      display: grid;
+      grid-template-rows: 56px 1fr 64px;
+      grid-template-columns: 1fr 260px;
+      grid-template-areas:
+        "header header"
+        "tank   sidebar"
+        "footer footer";
+      gap: 6px;
+      background: var(--bg-panel);
+      border: 2px solid var(--neon-cyan);
+      box-shadow:
+        0 0 10px var(--neon-cyan),
+        0 0 30px rgba(0,245,255,0.2),
+        inset 0 0 20px rgba(0,245,255,0.03);
+    }
+
+    /* ═══ HEADER ═══ */
+    #header {
+      grid-area: header;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 16px;
+      background: linear-gradient(90deg, #001a33 0%, #000d1a 50%, #001a33 100%);
+      border-bottom: 2px solid var(--neon-cyan);
+    }
+
+    #game-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 11px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px var(--neon-cyan), 0 0 20px var(--neon-cyan);
+      letter-spacing: 2px;
+      animation: title-flicker 8s infinite;
+    }
+
+    @keyframes title-flicker {
+      0%, 97%, 100% { opacity: 1; }
+      98% { opacity: 0.4; }
+      99% { opacity: 1; }
+    }
+
+    #header-stats {
+      display: flex; gap: 20px; align-items: center;
+    }
+
+    .hstat {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+
+    .hstat .label { color: var(--text-dim); }
+    .hstat .val {
+      color: var(--neon-yellow);
+      text-shadow: 0 0 6px var(--neon-yellow);
+      min-width: 60px;
+    }
+
+    #mute-btn {
+      background: none; border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan); font-family: 'Press Start 2P', monospace;
+      font-size: 7px; padding: 4px 8px; cursor: pointer;
+      transition: all 0.15s;
+    }
+    #mute-btn:hover { background: var(--neon-cyan); color: #000; }
+
+    /* ═══ TANK ═══ */
+    #tank-area {
+      grid-area: tank;
+      position: relative;
+      overflow: hidden;
+      background: linear-gradient(180deg, #001a3d 0%, #002255 30%, #001a44 60%, #001030 100%);
+      border-right: 2px solid var(--neon-cyan);
+    }
+
+    #tank-canvas {
+      width: 100%; height: 100%;
+      display: block;
+    }
+
+    /* Tank decorations */
+    #tank-overlay {
+      position: absolute; inset: 0;
+      pointer-events: none;
+    }
+
+    /* Aquarium glass shimmer */
+    #tank-area::before {
+      content: '';
+      position: absolute; top: 0; left: 0; right: 0; height: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+      z-index: 10;
+    }
+
+    /* Click to feed indicator */
+    #feed-hint {
+      position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      color: rgba(0,245,255,0.4);
+      animation: blink-slow 2s infinite;
+      pointer-events: none;
+    }
+
+    @keyframes blink-slow {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.1; }
+    }
+
+    /* Floating food particles */
+    .food-particle {
+      position: absolute;
+      width: 4px; height: 4px;
+      background: var(--neon-yellow);
+      border-radius: 50%;
+      pointer-events: none;
+      animation: food-fall 2s linear forwards;
+    }
+
+    @keyframes food-fall {
+      0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+      100% { opacity: 0; transform: translateY(200px) rotate(360deg); }
+    }
+
+    /* Floating text */
+    .float-text {
+      position: absolute;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      pointer-events: none;
+      animation: float-up 1.2s ease-out forwards;
+      z-index: 20;
+    }
+
+    @keyframes float-up {
+      0% { opacity: 1; transform: translateY(0); }
+      100% { opacity: 0; transform: translateY(-60px); }
+    }
+
+    /* ═══ SIDEBAR ═══ */
+    #sidebar {
+      grid-area: sidebar;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-panel);
+    }
+
+    /* Sidebar tabs */
+    #sidebar-tabs {
+      display: flex;
+      border-bottom: 2px solid var(--neon-cyan);
+    }
+
+    .tab-btn {
+      flex: 1;
+      background: none;
+      border: none;
+      border-right: 1px solid rgba(0,245,255,0.3);
+      color: var(--text-dim);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      padding: 8px 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 3px;
+    }
+
+    .tab-btn:last-child { border-right: none; }
+    .tab-btn .tab-icon { font-size: 14px; }
+
+    .tab-btn.active {
+      color: var(--neon-cyan);
+      background: rgba(0,245,255,0.08);
+      text-shadow: 0 0 6px var(--neon-cyan);
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text-main);
+      background: rgba(255,255,255,0.03);
+    }
+
+    /* Sidebar content panels */
+    .sidebar-panel {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 8px;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .sidebar-panel.active { display: flex; }
+
+    /* Custom scrollbar */
+    .sidebar-panel::-webkit-scrollbar { width: 4px; }
+    .sidebar-panel::-webkit-scrollbar-track { background: var(--bg-dark); }
+    .sidebar-panel::-webkit-scrollbar-thumb { background: var(--neon-cyan); }
+
+    /* ═══ SHOP ═══ */
+    .shop-item {
+      background: rgba(0,245,255,0.04);
+      border: 1px solid rgba(0,245,255,0.2);
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      position: relative;
+    }
+
+    .shop-item:hover {
+      border-color: var(--neon-cyan);
+      background: rgba(0,245,255,0.1);
+      box-shadow: 0 0 8px rgba(0,245,255,0.2);
+    }
+
+    .shop-item.locked {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .shop-item-header {
+      display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+    }
+
+    .shop-item-icon { font-size: 20px; }
+
+    .shop-item-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--neon-cyan);
+    }
+
+    .shop-item-rarity {
+      font-size: 9px;
+      margin-left: auto;
+    }
+
+    .shop-item-desc {
+      font-size: 14px;
+      color: var(--text-dim);
+      line-height: 1.3;
+      margin-bottom: 4px;
+    }
+
+    .shop-item-footer {
+      display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .shop-price {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--neon-yellow);
+    }
+
+    .shop-buy-btn {
+      background: linear-gradient(135deg, #003333, #001a1a);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      padding: 4px 8px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .shop-buy-btn:hover {
+      background: var(--neon-cyan);
+      color: #000;
+    }
+
+    .shop-buy-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Section headers */
+    .section-header {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--neon-pink);
+      text-shadow: 0 0 6px var(--neon-pink);
+      border-bottom: 1px solid var(--neon-pink);
+      padding-bottom: 4px;
+      margin-bottom: 4px;
+    }
+
+    /* ═══ FISH INVENTORY ═══ */
+    #fish-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+    }
+
+    .fish-card {
+      background: rgba(0,245,255,0.04);
+      border: 1px solid rgba(0,245,255,0.2);
+      padding: 6px;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-align: center;
+      position: relative;
+    }
+
+    .fish-card:hover {
+      border-color: var(--neon-yellow);
+      background: rgba(255,214,10,0.08);
+    }
+
+    .fish-card.sick {
+      border-color: var(--neon-pink) !important;
+      animation: sick-pulse 1s infinite;
+    }
+
+    @keyframes sick-pulse {
+      0%, 100% { box-shadow: 0 0 4px rgba(255,0,110,0.4); }
+      50% { box-shadow: 0 0 12px rgba(255,0,110,0.8); }
+    }
+
+    .fish-card-emoji { font-size: 24px; display: block; margin-bottom: 2px; }
+
+    .fish-card-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 5px;
+      color: var(--text-main);
+      display: block;
+    }
+
+    .fish-card-val {
+      font-size: 12px;
+      color: var(--neon-yellow);
+      display: block;
+    }
+
+    .fish-health-bar {
+      width: 100%; height: 3px;
+      background: rgba(255,255,255,0.1);
+      margin-top: 3px;
+      position: relative;
+    }
+
+    .fish-health-fill {
+      height: 100%;
+      background: var(--neon-green);
+      transition: width 0.5s;
+    }
+
+    .sell-overlay {
+      position: absolute; inset: 0;
+      background: rgba(255,214,10,0.2);
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .fish-card:hover .sell-overlay { opacity: 1; }
+
+    .sell-overlay-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 6px var(--neon-yellow);
+    }
+
+    /* ═══ STATS PANEL ═══ */
+    .stat-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 4px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 16px;
+    }
+
+    .stat-row .sl { color: var(--text-dim); }
+    .stat-row .sv {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--neon-cyan);
+    }
+
+    /* Progress bars */
+    .prog-bar {
+      width: 100%;
+      height: 10px;
+      background: rgba(255,255,255,0.1);
+      border: 1px solid rgba(255,255,255,0.1);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .prog-fill {
+      height: 100%;
+      transition: width 0.5s ease;
+      position: relative;
+    }
+
+    .prog-fill::after {
+      content: '';
+      position: absolute; right: 0; top: 0; bottom: 0;
+      width: 4px;
+      background: rgba(255,255,255,0.8);
+      animation: scan-line 1s ease-in-out infinite;
+    }
+
+    @keyframes scan-line {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+
+    .prog-fill.exp { background: linear-gradient(90deg, #0080ff, #00f5ff); }
+    .prog-fill.food { background: linear-gradient(90deg, #ff6b35, var(--neon-yellow)); }
+    .prog-fill.hp { background: linear-gradient(90deg, #39ff14, #00ff80); }
+
+    /* Achievements */
+    .achievement {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .achievement.unlocked {
+      border-color: var(--neon-yellow);
+      background: rgba(255,214,10,0.06);
+    }
+
+    .ach-icon { font-size: 18px; }
+
+    .ach-info {}
+    .ach-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      color: var(--neon-yellow);
+      display: block;
+    }
+
+    .ach-desc {
+      font-size: 13px;
+      color: var(--text-dim);
+      display: block;
+    }
+
+    /* ═══ UPGRADE PANEL ═══ */
+    .upgrade-item {
+      background: rgba(191,90,242,0.05);
+      border: 1px solid rgba(191,90,242,0.3);
+      padding: 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .upgrade-item:hover {
+      border-color: var(--neon-purple);
+      background: rgba(191,90,242,0.12);
+    }
+
+    .upgrade-item.maxed {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .upgrade-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--neon-purple);
+      margin-bottom: 3px;
+    }
+
+    .upgrade-level {
+      display: flex; gap: 2px; margin: 4px 0;
+    }
+
+    .upgrade-pip {
+      width: 8px; height: 8px;
+      border: 1px solid rgba(191,90,242,0.4);
+      background: rgba(191,90,242,0.08);
+    }
+
+    .upgrade-pip.filled {
+      background: var(--neon-purple);
+      box-shadow: 0 0 4px var(--neon-purple);
+    }
+
+    /* ═══ FOOTER ═══ */
+    #footer {
+      grid-area: footer;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 12px;
+      background: linear-gradient(90deg, #001a33 0%, #000d1a 50%, #001a33 100%);
+      border-top: 2px solid var(--neon-cyan);
+      gap: 8px;
+    }
+
+    /* EXP bar in footer */
+    #exp-container {
+      flex: 1;
+      display: flex; align-items: center; gap: 8px;
+    }
+
+    #exp-label {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--text-dim);
+      white-space: nowrap;
+    }
+
+    #exp-bar-wrap {
+      flex: 1; height: 12px;
+      background: rgba(0,128,255,0.1);
+      border: 1px solid rgba(0,128,255,0.3);
+      position: relative;
+      overflow: hidden;
+    }
+
+    #exp-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #0040ff, #00f5ff);
+      transition: width 0.6s ease;
+      box-shadow: 0 0 6px rgba(0,245,255,0.5);
+    }
+
+    #exp-bar-text {
+      position: absolute; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-family: 'Press Start 2P', monospace; font-size: 6px;
+      color: rgba(255,255,255,0.8);
+    }
+
+    /* Resource display */
+    .resource-display {
+      display: flex; align-items: center; gap: 6px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+    }
+
+    .resource-icon { font-size: 14px; }
+
+    .resource-val {
+      min-width: 60px; text-align: right;
+    }
+
+    .resource-val.gold { color: var(--neon-yellow); text-shadow: 0 0 6px var(--neon-yellow); }
+    .resource-val.food { color: var(--neon-orange); text-shadow: 0 0 6px var(--neon-orange); }
+
+    /* Action buttons in footer */
+    .footer-btn {
+      background: linear-gradient(135deg, #001a33, #000d1a);
+      border: 1px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      font-family: 'Press Start 2P', monospace;
+      font-size: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      transition: all 0.15s;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 2px;
+    }
+
+    .footer-btn .fb-icon { font-size: 14px; }
+
+    .footer-btn:hover {
+      background: var(--neon-cyan);
+      color: #000;
+      box-shadow: 0 0 10px var(--neon-cyan);
+    }
+
+    .footer-btn:active { transform: scale(0.95); }
+
+    /* ═══ MODALS ═══ */
+    #modal-overlay {
+      position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,0.85);
+      display: none; align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+
+    #modal-overlay.active { display: flex; }
+
+    #modal-box {
+      background: var(--bg-panel);
+      border: 2px solid var(--neon-cyan);
+      box-shadow: 0 0 20px var(--neon-cyan), 0 0 60px rgba(0,245,255,0.15);
+      width: min(400px, 90vw);
+      max-height: 80vh;
+      overflow-y: auto;
+      animation: modal-in 0.2s ease-out;
+    }
+
+    @keyframes modal-in {
+      from { transform: scale(0.85); opacity: 0; }
+      to { transform: scale(1); opacity: 1; }
+    }
+
+    .modal-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      background: linear-gradient(90deg, rgba(0,245,255,0.1), transparent);
+      border-bottom: 1px solid var(--neon-cyan);
+    }
+
+    .modal-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 8px var(--neon-cyan);
+    }
+
+    .modal-close {
+      background: none; border: 1px solid var(--neon-pink);
+      color: var(--neon-pink); width: 24px; height: 24px;
+      cursor: pointer; font-family: 'Press Start 2P', monospace;
+      font-size: 10px; display: flex; align-items: center; justify-content: center;
+    }
+
+    .modal-close:hover { background: var(--neon-pink); color: #000; }
+
+    .modal-body { padding: 16px; }
+
+    .modal-fish-info {
+      display: flex; gap: 16px; margin-bottom: 16px;
+    }
+
+    .modal-fish-icon { font-size: 56px; }
+
+    .modal-fish-details { flex: 1; }
+
+    .modal-fish-name {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      color: var(--neon-cyan);
+      margin-bottom: 8px;
+    }
+
+    .modal-stat {
+      display: flex; justify-content: space-between;
+      padding: 3px 0;
+      font-size: 16px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .modal-stat .ms-label { color: var(--text-dim); }
+    .modal-stat .ms-val { color: var(--neon-yellow); font-family: 'Press Start 2P', monospace; font-size: 8px; }
+
+    .modal-actions { display: flex; gap: 8px; margin-top: 12px; }
+
+    .modal-btn {
+      flex: 1;
+      padding: 10px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      cursor: pointer;
+      transition: all 0.15s;
+      border: none;
+    }
+
+    .modal-btn.sell {
+      background: linear-gradient(135deg, #331a00, #1a0d00);
+      border: 1px solid var(--neon-yellow);
+      color: var(--neon-yellow);
+    }
+
+    .modal-btn.sell:hover {
+      background: var(--neon-yellow);
+      color: #000;
+    }
+
+    .modal-btn.heal {
+      background: linear-gradient(135deg, #001a33, #000d1a);
+      border: 1px solid var(--neon-green);
+      color: var(--neon-green);
+    }
+
+    .modal-btn.heal:hover {
+      background: var(--neon-green);
+      color: #000;
+    }
+
+    .modal-btn.cancel {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--text-dim);
+      color: var(--text-dim);
+    }
+
+    .modal-btn.cancel:hover {
+      border-color: var(--text-main);
+      color: var(--text-main);
+    }
+
+    /* ═══ LEVEL UP OVERLAY ═══ */
+    #levelup-overlay {
+      position: fixed; inset: 0; z-index: 2000;
+      background: rgba(0,0,0,0.95);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 16px;
+    }
+
+    #levelup-overlay.active {
+      display: flex;
+      animation: levelup-in 0.5s ease-out;
+    }
+
+    @keyframes levelup-in {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    #levelup-text {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 28px;
+      color: var(--neon-yellow);
+      text-shadow: 0 0 20px var(--neon-yellow), 0 0 60px var(--neon-yellow);
+      animation: levelup-bounce 0.5s ease-out;
+    }
+
+    @keyframes levelup-bounce {
+      0% { transform: translateY(-60px) scale(0.5); opacity: 0; }
+      70% { transform: translateY(8px) scale(1.05); }
+      100% { transform: translateY(0) scale(1); }
+    }
+
+    #levelup-num {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 80px;
+      font-weight: 900;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 30px var(--neon-cyan);
+    }
+
+    #levelup-sub {
+      font-size: 22px;
+      color: var(--text-dim);
+    }
+
+    #levelup-continue {
+      margin-top: 8px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: var(--neon-cyan);
+      animation: blink-slow 1s infinite;
+    }
+
+    /* ═══ NOTIFICATION TOAST ═══ */
+    #toast-container {
+      position: fixed;
+      top: 70px; right: 12px;
+      z-index: 5000;
+      display: flex; flex-direction: column; gap: 6px;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--bg-panel);
+      border-left: 3px solid var(--neon-cyan);
+      padding: 8px 12px;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 7px;
+      color: var(--text-main);
+      animation: toast-in 0.3s ease-out, toast-out 0.3s ease-in 2.7s forwards;
+      box-shadow: 0 0 10px rgba(0,245,255,0.3);
+      min-width: 180px;
+    }
+
+    .toast.success { border-color: var(--neon-green); box-shadow: 0 0 10px rgba(57,255,20,0.3); }
+    .toast.warn { border-color: var(--neon-orange); box-shadow: 0 0 10px rgba(255,107,53,0.3); }
+    .toast.error { border-color: var(--neon-pink); box-shadow: 0 0 10px rgba(255,0,110,0.3); }
+
+    @keyframes toast-in {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @keyframes toast-out {
+      from { opacity: 1; }
+      to { opacity: 0; }
+    }
+
+    /* ═══ INTRO SCREEN ═══ */
+    #intro-screen {
+      position: fixed; inset: 0; z-index: 9000;
+      background: var(--bg-dark);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 24px;
+    }
+
+    #intro-title {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 22px;
+      color: var(--neon-cyan);
+      text-shadow: 0 0 20px var(--neon-cyan), 0 0 60px rgba(0,245,255,0.4);
+      text-align: center;
+      line-height: 1.6;
+    }
+
+    #intro-subtitle {
+      font-size: 22px;
+      color: var(--text-dim);
+      text-align: center;
+    }
+
+    #intro-fish {
+      font-size: 60px;
+      animation: intro-fish 2s ease-in-out infinite alternate;
+    }
+
+    @keyframes intro-fish {
+      from { transform: translateX(-20px) scaleX(1); }
+      to { transform: translateX(20px) scaleX(-1); }
+    }
+
+    #start-btn {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 12px;
+      background: none;
+      border: 2px solid var(--neon-cyan);
+      color: var(--neon-cyan);
+      padding: 14px 32px;
+      cursor: pointer;
+      animation: blink-slow 1s infinite;
+      transition: all 0.2s;
+    }
+
+    #start-btn:hover {
+      background: var(--neon-cyan);
+      color: #000;
+      animation: none;
+    }
+
+    .intro-credits {
+      font-size: 14px;
+      color: var(--text-dim);
+      text-align: center;
+      line-height: 1.8;
+    }
+
+    /* ═══ STAR PARTICLES (level up) ═══ */
+    .star-particle {
+      position: fixed;
+      font-size: 16px;
+      pointer-events: none;
+      z-index: 3000;
+      animation: star-fly 1.5s ease-out forwards;
+    }
+
+    @keyframes star-fly {
+      0% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+      100% { opacity: 0; transform: translateY(-200px) rotate(720deg) scale(0); }
+    }
+
+    /* Retro corner decorations */
+    .corner-deco {
+      position: absolute;
+      font-family: 'Press Start 2P', monospace;
+      font-size: 8px;
+      color: rgba(0,245,255,0.2);
+      pointer-events: none;
+    }
+
+    /* ═══ RESPONSIVE ═══ */
+    @media (max-width: 700px) {
+      #game-container {
+        grid-template-columns: 1fr;
+        grid-template-rows: 48px 1fr 180px 56px;
+        grid-template-areas:
+          "header"
+          "tank"
+          "sidebar"
+          "footer";
+      }
+
+      #game-title { font-size: 8px; }
+      #header-stats { gap: 10px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ INTRO SCREEN ═══ -->
+<div id="intro-screen">
+  <div id="intro-fish">🐠</div>
+  <div id="intro-title">FISH<br>TYCOON</div>
+  <div id="intro-subtitle">Аквариумный Магнат 1987</div>
+  <button id="start-btn">► НАЧАТЬ ИГРУ ◄</button>
+  <div class="intro-credits">
+    INSERT COIN TO CONTINUE<br>
+    © 1987 AQUA SYSTEMS INC. ALL RIGHTS RESERVED
+  </div>
+</div>
+
+<!-- ═══ MAIN GAME ═══ -->
+<div id="game-wrapper">
+  <div id="game-container">
+
+    <!-- HEADER -->
+    <header id="header">
+      <div id="game-title">🐠 FISH TYCOON</div>
+      <div id="header-stats">
+        <div class="hstat">
+          <span class="label">LVL</span>
+          <span class="val" id="hdr-level">01</span>
+        </div>
+        <div class="hstat">
+          <span class="label">РЫБЫ</span>
+          <span class="val" id="hdr-fish">0</span>
+        </div>
+        <div class="hstat">
+          <span class="label">ВРЕМЯ</span>
+          <span class="val" id="hdr-time">00:00</span>
+        </div>
+        <button id="mute-btn">🔊 SFX</button>
+      </div>
+    </header>
+
+    <!-- TANK -->
+    <main id="tank-area">
+      <canvas id="tank-canvas"></canvas>
+      <div id="feed-hint">[ КЛИКНИ ДЛЯ КОРМЛЕНИЯ ]</div>
+    </main>
+
+    <!-- SIDEBAR -->
+    <aside id="sidebar">
+      <div id="sidebar-tabs">
+        <button class="tab-btn active" data-tab="shop">
+          <span class="tab-icon">🛒</span>МАГАЗИН
+        </button>
+        <button class="tab-btn" data-tab="fish">
+          <span class="tab-icon">🐠</span>РЫБЫ
+        </button>
+        <button class="tab-btn" data-tab="upgrade">
+          <span class="tab-icon">⬆️</span>АПГРЕЙД
+        </button>
+        <button class="tab-btn" data-tab="stats">
+          <span class="tab-icon">📊</span>СТАТС
+        </button>
+      </div>
+
+      <!-- SHOP PANEL -->
+      <div class="sidebar-panel active" id="panel-shop">
+        <div class="section-header">► КУПИТЬ РЫБУ</div>
+        <div id="shop-fish-list"></div>
+        <div class="section-header" style="margin-top:8px">► РАСХОДНИКИ</div>
+        <div id="shop-items-list"></div>
+      </div>
+
+      <!-- FISH PANEL -->
+      <div class="sidebar-panel" id="panel-fish">
+        <div class="section-header">► ВАШ АКВАРИУМ</div>
+        <div id="fish-count-info" style="font-size:14px; color:var(--text-dim); margin-bottom:6px"></div>
+        <div id="fish-grid"></div>
+      </div>
+
+      <!-- UPGRADE PANEL -->
+      <div class="sidebar-panel" id="panel-upgrade">
+        <div class="section-header">► УЛУЧШЕНИЯ</div>
+        <div id="upgrade-list"></div>
+      </div>
+
+      <!-- STATS PANEL -->
+      <div class="sidebar-panel" id="panel-stats">
+        <div class="section-header">► СТАТИСТИКА</div>
+        <div id="stats-list"></div>
+        <div class="section-header" style="margin-top:8px">► ДОСТИЖЕНИЯ</div>
+        <div id="achievements-list"></div>
+      </div>
+    </aside>
+
+    <!-- FOOTER -->
+    <footer id="footer">
+      <div class="resource-display">
+        <span class="resource-icon">🪙</span>
+        <span class="resource-val gold" id="gold-display">0</span>
+      </div>
+      <div class="resource-display">
+        <span class="resource-icon">🍖</span>
+        <span class="resource-val food" id="food-display">100</span>
+      </div>
+      <div id="exp-container">
+        <span id="exp-label">EXP</span>
+        <div id="exp-bar-wrap">
+          <div id="exp-bar-fill" style="width:0%"></div>
+          <div id="exp-bar-text">0 / 100</div>
+        </div>
+      </div>
+      <button class="footer-btn" id="btn-sell-all">
+        <span class="fb-icon">💰</span>ПРОДАТЬ ВСЕ
+      </button>
+      <button class="footer-btn" id="btn-heal-all">
+        <span class="fb-icon">💊</span>ЛЕЧИТЬ ВСЕ
+      </button>
+      <button class="footer-btn" id="btn-feed-all">
+        <span class="fb-icon">🍖</span>ПОКОРМИТЬ
+      </button>
+    </footer>
+
+  </div>
+</div>
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <div class="modal-header">
+      <div class="modal-title" id="modal-title-text">РЫБА</div>
+      <button class="modal-close" id="modal-close-btn">✕</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<!-- LEVEL UP -->
+<div id="levelup-overlay">
+  <div id="levelup-text">LEVEL UP!</div>
+  <div id="levelup-num" id="levelup-num-display">2</div>
+  <div id="levelup-sub">Новые возможности открыты!</div>
+  <div id="levelup-continue">[ НАЖМИТЕ ЛЮБУЮ КЛАВИШУ ]</div>
+</div>
+
+<!-- TOASTS -->
+<div id="toast-container"></div>
+
+<script src="game.js"></script>
+</body>
+</html>
